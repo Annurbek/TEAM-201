@@ -108,6 +108,30 @@ Apply migrations:
 alembic upgrade head
 ```
 
+Seed demo data:
+
+```powershell
+python scripts/seed_demo_data.py
+```
+
+The seed script is idempotent. It removes only previous demo data with emails ending in `@demo.local` and academic year `2025-2026 Demo`, then inserts fresh demo records across all current database tables.
+
+Default demo password for all demo users:
+
+```text
+DemoPass123!
+```
+
+Useful demo users:
+
+```text
+demo.superadmin@demo.local
+demo.admin@demo.local
+demo.tutor1@demo.local
+demo.parent1@demo.local
+demo.student1@demo.local
+```
+
 Check current migration:
 
 ```powershell
