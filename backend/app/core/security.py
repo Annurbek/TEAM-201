@@ -22,6 +22,9 @@ from app.models.users import User
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
+def _decode_base64url(value: str) -> bytes:
+    padding = "=" * (-len(value) % 4)
+    return base64.urlsafe_b64decode(value + padding)
 
 def normalize_username(username: str) -> str:
     normalized = username.strip().lower()
@@ -54,21 +57,23 @@ def hash_password(password: str, iterations: int = 100_000) -> str:
 
 def verify_password(password: str, password_hash: str) -> bool:
     try:
-        algorithm, rounds, salt_hex, stored_key = password_hash.split("$")
+        algorithm, rounds, salt_b64, stored_key_b64 = password_hash.split("$")
     except ValueError as exc:
         raise ValueError("Invalid password hash format") from exc
 
     if algorithm != "pbkdf2_sha256":
         raise ValueError("Unsupported password hash algorithm")
 
-    salt = bytes.fromhex(salt_hex)
-    expected_key = bytes.fromhex(stored_key)
+    salt = _decode_base64url(salt_b64)
+    expected_key = _decode_base64url(stored_key_b64)
+
     derived_key = hashlib.pbkdf2_hmac(
         "sha256",
         password.encode("utf-8"),
         salt,
         int(rounds),
     )
+
     return compare_digest(expected_key, derived_key)
 
 
