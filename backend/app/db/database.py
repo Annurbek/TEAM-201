@@ -1,6 +1,5 @@
-from pathlib import Path
-
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
 from app.core.config import settings
 from app.db.base import Base
 
@@ -15,7 +14,10 @@ async def get_db():
 
 
 async def init_db() -> None:
-    Path("./data").mkdir(parents=True, exist_ok=True)
-    Path(settings.UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
+    """Create all tables if they don't exist.
+
+    For production, use Alembic migrations instead:
+        alembic upgrade head
+    """
     async with engine.begin() as connection:
         await connection.run_sync(Base.metadata.create_all)

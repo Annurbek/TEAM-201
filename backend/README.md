@@ -2,26 +2,26 @@
 
 FastAPI backend for the PDP University grant and performance monitoring system.
 
-The backend runs with a self-contained SQLite database by default, exposes the API under `/api`, and implements the core workflows for authentication, student scoring, attendance, grades, achievements, feedback, tutor ratings, penalties, recovery tasks, employment verification, admin dashboards, and public leaderboard access.
+The backend connects to a PostgreSQL database, exposes the API under `/api`, and implements the core workflows for authentication, student scoring, attendance, grades, achievements, feedback, tutor ratings, penalties, recovery tasks, employment verification, admin dashboards, and public leaderboard access.
 
 ## Stack
 
-- Python 3.14+
+- Python 3.11+
 - FastAPI
 - SQLAlchemy 2.x async ORM
-- SQLite by default via `aiosqlite`
+- PostgreSQL via `asyncpg`
 - JWT-style bearer tokens implemented in `app/core/security.py`
 - Pydantic and Pydantic Settings
-- Alembic is still available for manual schema migrations if needed
+- Alembic for schema migrations
 
 ## Project Layout
 
 ```text
 app/
   main.py                FastAPI entrypoint
-  core/                  Config, security, RBAC, error handling
+  core/                  Config, security, RBAC, permissions, ABAC, error handling
   db/                    Async engine, Base metadata, seed module
-  models/                SQLAlchemy models and enums
+  models/                SQLAlchemy models, enums, and permissions
   routers/               Auth + Edumetric API routers
   services/              Auth, audit, notification, score engine
 scripts/
@@ -40,12 +40,22 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-The backend works out of the box with the SQLite default in `.env.example`:
+Configure PostgreSQL connection in `.env`:
 
 ```env
-DATABASE_URL_OVERRIDE=sqlite+aiosqlite:///./data/edumetrik.db
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=edumetrik
+DB_USER=postgres
+DB_PASSWORD=your_password
+DATABASE_URL_OVERRIDE=postgresql+asyncpg://postgres:your_password@localhost:5432/edumetrik
 SECRET_KEY=change-me-in-production
-UPLOAD_DIR=./uploads
+```
+
+Then run migrations:
+
+```bash
+alembic upgrade head
 ```
 
 ## Run
@@ -203,7 +213,8 @@ pytest -q
 
 ## Notes
 
-- The backend creates SQLite tables on startup.
+- The backend uses Alembic for schema migrations. Run `alembic upgrade head` after pulling changes.
 - Uploads are stored in `./uploads`.
 - `app/models` is the single source of truth for ORM metadata.
 - `python -m app.db.seed` is the canonical demo seed command.
+- RBAC uses a 3-layer system: authentication middleware → role-based dependencies → ABAC guards.

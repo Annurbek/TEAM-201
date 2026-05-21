@@ -7,12 +7,11 @@ from typing import Any
 from uuid import uuid4
 
 from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, UploadFile, status
-from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.permissions import require_roles
+from app.core.permissions import require_role, require_any_role, require_min_role, require_score_history_edit
 from app.core.security import get_current_user
 from app.db.database import get_db
 from app.models import (
@@ -47,6 +46,25 @@ from app.models import (
     WorkType,
 )
 from app.models.enums import PenaltyStatus
+from app.schemas.edumetric import (
+    AcademicYearPayload,
+    AchievementReviewPayload,
+    AttendanceBulkPayload,
+    AttendanceCreatePayload,
+    CoursePayload,
+    EmploymentPayload,
+    FeedbackCreatePayload,
+    FeedbackUpdatePayload,
+    GradeCreatePayload,
+    GradeUpdatePayload,
+    GroupPayload,
+    NotificationPayload,
+    PenaltyCreatePayload,
+    RecoveryTaskPayload,
+    SemesterPayload,
+    TutorRatingPayload,
+)
+from app.schemas.user import UserCreatePayload, UserUpdatePayload
 from app.services.audit_service import log_audit
 from app.services.notification_service import create_notification
 from app.services.score_service import (
@@ -79,200 +97,6 @@ ACHIEVEMENT_LIMITS = {
     AchievementType.direction_assistant: 3,
     AchievementType.strategic_assistant: 4,
 }
-
-
-class UserCreatePayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    full_name: str = Field(..., min_length=2, max_length=255)
-    username: str | None = Field(default=None, max_length=255)
-    password: str | None = Field(default=None, min_length=8)
-    role: UserRole = Field(default=UserRole.student)
-    phone: str | None = Field(default=None, max_length=50)
-    student_code: str | None = Field(default=None, max_length=50)
-    current_group_id: int | None = None
-    admission_year: int | None = None
-
-
-class UserUpdatePayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    full_name: str | None = Field(default=None, max_length=255)
-    phone: str | None = Field(default=None, max_length=50)
-    is_active: bool | None = None
-
-
-class AttendanceCreatePayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    student_id: int
-    course_id: int
-    semester_id: int | None = None
-    date: str
-    status: AttendanceStatus
-    note: str | None = None
-
-
-class AttendanceBulkPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    course_id: int
-    semester_id: int | None = None
-    date: str
-    records: list[dict[str, Any]]
-
-
-class GradeCreatePayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    student_id: int
-    course_id: int
-    semester_id: int | None = None
-    assignment_name: str
-    score: float
-    max_score: float = 100.0
-    submission_date: str | None = None
-    deadline: str | None = None
-    is_late: bool = False
-    quality: str | None = None
-    is_independent: bool = True
-
-
-class GradeUpdatePayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    assignment_name: str | None = None
-    score: float | None = None
-    max_score: float | None = None
-    submission_date: str | None = None
-    deadline: str | None = None
-    is_late: bool | None = None
-    quality: str | None = None
-    is_independent: bool | None = None
-
-
-class AchievementReviewPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    points_approved: float | None = None
-    admin_note: str | None = None
-
-
-class FeedbackCreatePayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    student_id: int
-    course_id: int | None = None
-    type: FeedbackType
-    content: str
-    sentiment: SentimentType | None = None
-    is_visible_to_student: bool = True
-
-
-class FeedbackUpdatePayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    content: str | None = None
-    sentiment: SentimentType | None = None
-    is_visible_to_student: bool | None = None
-
-
-class TutorRatingPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    student_id: int
-    semester: int | None = None
-    year: int | None = None
-    corporate_culture: float = 0.0
-    social_activity: float = 0.0
-    soft_skills: float = 0.0
-    discipline: float = 0.0
-    dorm_activity: float = 0.0
-    note: str | None = None
-
-
-class PenaltyCreatePayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    student_id: int
-    type: str
-    reason: str
-    points: float
-    semester_id: int | None = None
-
-
-class RecoveryTaskPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    student_id: int
-    task_description: str
-    points_recoverable: float
-    semester_id: int | None = None
-    due_date: str | None = None
-
-
-class EmploymentPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    student_id: int
-    company_name: str
-    position: str
-    type: WorkType
-    hours_per_week: int | None = None
-    start_date: str
-    end_date: str | None = None
-    is_it_related: bool = True
-    bonus_points: float = 0.0
-    semester_id: int | None = None
-    semester: int
-    year: int
-
-
-class CoursePayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    name: str
-    code: str
-    mentor_id: int | None = None
-    year: int
-    semester: int
-    max_hours: int = 80
-
-
-class GroupPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    name: str
-    course: int
-    academic_year_id: int
-
-
-class AcademicYearPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    name: str
-    start_date: datetime
-    end_date: datetime
-    is_current: bool = False
-
-
-class SemesterPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    academic_year_id: int
-    number: int
-    start_date: datetime
-    end_date: datetime
-    is_current: bool = False
-
-
-class NotificationPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    user_id: int
-    title: str
-    message: str
-    type: NotificationType = NotificationType.info
 
 
 async def _resolve_scope(db: AsyncSession, semester_id: int | None = None, academic_year_id: int | None = None) -> tuple[Semester, AcademicYear]:
@@ -413,7 +237,7 @@ async def public_leaderboard(
 
 @router.get("/students")
 async def list_students(
-    current_user: User = Depends(require_roles(UserRole.admin, UserRole.super_admin)),
+    current_user: User = Depends(require_role(UserRole.admin, UserRole.super_admin)),
     db: AsyncSession = Depends(get_db),
     search: str | None = None,
     group_id: int | None = None,
@@ -441,7 +265,7 @@ async def student_detail(
     db: AsyncSession = Depends(get_db),
 ):
     student = await _student_access_or_404(current_user, student_id, db)
-    user = (await db.execute(select(User).where(User.id == student.user_id))).scalar_one()
+    user = (await db.execute(select(StudentProfile).where(StudentProfile.id == student_id))).scalar_one()
     semester = await get_current_semester(db)
     academic_year = await get_current_academic_year(db)
     score = None
@@ -549,7 +373,7 @@ async def student_feed(
 @router.post("/students/{student_id}/recalculate")
 async def recalculate_student(
     student_id: int,
-    current_user: User = Depends(require_roles(UserRole.admin, UserRole.super_admin)),
+    current_user: User = Depends(require_role(UserRole.admin, UserRole.super_admin)),
     db: AsyncSession = Depends(get_db),
 ):
     semester = await get_current_semester(db)
@@ -585,7 +409,7 @@ async def list_attendance(
 @router.get("/attendance/course/{course_id}")
 async def course_attendance(
     course_id: int,
-    current_user: User = Depends(require_roles(UserRole.tutor, UserRole.admin, UserRole.super_admin)),
+    current_user: User = Depends(require_role(UserRole.tutor, UserRole.admin, UserRole.super_admin)),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(AttendanceRecord).where(AttendanceRecord.course_id == course_id).order_by(AttendanceRecord.date.desc()))
@@ -610,7 +434,7 @@ async def attendance_stats(
 @router.post("/attendance")
 async def create_attendance(
     payload: AttendanceCreatePayload,
-    current_user: User = Depends(require_roles(UserRole.tutor, UserRole.admin, UserRole.super_admin)),
+    current_user: User = Depends(require_role(UserRole.tutor, UserRole.admin, UserRole.super_admin)),
     db: AsyncSession = Depends(get_db),
 ):
     semester, academic_year = await _resolve_scope(db, payload.semester_id)
@@ -634,7 +458,7 @@ async def create_attendance(
 @router.post("/attendance/bulk")
 async def bulk_attendance(
     payload: AttendanceBulkPayload,
-    current_user: User = Depends(require_roles(UserRole.tutor, UserRole.admin, UserRole.super_admin)),
+    current_user: User = Depends(require_role(UserRole.tutor, UserRole.admin, UserRole.super_admin)),
     db: AsyncSession = Depends(get_db),
 ):
     semester, academic_year = await _resolve_scope(db, payload.semester_id)
@@ -660,7 +484,7 @@ async def bulk_attendance(
 async def update_attendance(
     attendance_id: int,
     payload: AttendanceCreatePayload,
-    current_user: User = Depends(require_roles(UserRole.tutor, UserRole.admin, UserRole.super_admin)),
+    current_user: User = Depends(require_role(UserRole.tutor, UserRole.admin, UserRole.super_admin)),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(AttendanceRecord).where(AttendanceRecord.id == attendance_id))
@@ -684,7 +508,7 @@ async def update_attendance(
 @router.post("/grades")
 async def create_grade(
     payload: GradeCreatePayload,
-    current_user: User = Depends(require_roles(UserRole.tutor, UserRole.admin, UserRole.super_admin)),
+    current_user: User = Depends(require_role(UserRole.tutor, UserRole.admin, UserRole.super_admin)),
     db: AsyncSession = Depends(get_db),
 ):
     semester, academic_year = await _resolve_scope(db, payload.semester_id)
@@ -724,7 +548,7 @@ async def list_grades(
 async def update_grade(
     grade_id: int,
     payload: GradeUpdatePayload,
-    current_user: User = Depends(require_roles(UserRole.tutor, UserRole.admin, UserRole.super_admin)),
+    current_user: User = Depends(require_role(UserRole.tutor, UserRole.admin, UserRole.super_admin)),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(GradeRecord).where(GradeRecord.id == grade_id))
@@ -744,7 +568,7 @@ async def update_grade(
 @router.delete("/grades/{grade_id}")
 async def delete_grade(
     grade_id: int,
-    current_user: User = Depends(require_roles(UserRole.admin, UserRole.super_admin)),
+    current_user: User = Depends(require_role(UserRole.admin, UserRole.super_admin)),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(GradeRecord).where(GradeRecord.id == grade_id))
@@ -780,7 +604,7 @@ async def submit_achievement(
     points_claimed: float = Form(...),
     semester_id: int | None = Form(None),
     document: UploadFile | None = File(None),
-    current_user: User = Depends(require_roles(UserRole.student, UserRole.admin, UserRole.super_admin)),
+    current_user: User = Depends(require_role(UserRole.student, UserRole.admin, UserRole.super_admin)),
     db: AsyncSession = Depends(get_db),
 ):
     semester, academic_year = await _resolve_scope(db, semester_id)
@@ -804,7 +628,7 @@ async def submit_achievement(
 
 @router.get("/achievements")
 async def list_achievements(
-    current_user: User = Depends(require_roles(UserRole.admin, UserRole.super_admin)),
+    current_user: User = Depends(require_role(UserRole.admin, UserRole.super_admin)),
     db: AsyncSession = Depends(get_db),
     status_filter: AchievementStatus | None = None,
     type_filter: AchievementType | None = None,
@@ -852,7 +676,7 @@ async def achievement_detail(
 async def approve_achievement(
     achievement_id: int,
     payload: AchievementReviewPayload,
-    current_user: User = Depends(require_roles(UserRole.admin, UserRole.super_admin)),
+    current_user: User = Depends(require_role(UserRole.admin, UserRole.super_admin)),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(AchievementApplication).where(AchievementApplication.id == achievement_id))
@@ -875,7 +699,7 @@ async def approve_achievement(
 async def reject_achievement(
     achievement_id: int,
     payload: AchievementReviewPayload,
-    current_user: User = Depends(require_roles(UserRole.admin, UserRole.super_admin)),
+    current_user: User = Depends(require_role(UserRole.admin, UserRole.super_admin)),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(AchievementApplication).where(AchievementApplication.id == achievement_id))
@@ -915,7 +739,7 @@ async def delete_achievement(
 @router.post("/feedback")
 async def create_feedback(
     payload: FeedbackCreatePayload,
-    current_user: User = Depends(require_roles(UserRole.tutor, UserRole.mentor, UserRole.admin, UserRole.super_admin)),
+    current_user: User = Depends(require_role(UserRole.tutor, UserRole.mentor, UserRole.admin, UserRole.super_admin)),
     db: AsyncSession = Depends(get_db),
 ):
     current_semester = await get_current_semester(db)
@@ -947,7 +771,7 @@ async def student_feedback(
 
 @router.get("/feedback/my-given")
 async def my_given_feedback(
-    current_user: User = Depends(require_roles(UserRole.tutor, UserRole.mentor, UserRole.admin, UserRole.super_admin)),
+    current_user: User = Depends(require_role(UserRole.tutor, UserRole.mentor, UserRole.admin, UserRole.super_admin)),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(FeedbackEntry).where(FeedbackEntry.mentor_id == current_user.id).order_by(FeedbackEntry.created_at.desc()))
@@ -958,7 +782,7 @@ async def my_given_feedback(
 async def update_feedback(
     feedback_id: int,
     payload: FeedbackUpdatePayload,
-    current_user: User = Depends(require_roles(UserRole.tutor, UserRole.mentor, UserRole.admin, UserRole.super_admin)),
+    current_user: User = Depends(require_role(UserRole.tutor, UserRole.mentor, UserRole.admin, UserRole.super_admin)),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(FeedbackEntry).where(FeedbackEntry.id == feedback_id))
@@ -975,7 +799,7 @@ async def update_feedback(
 @router.delete("/feedback/{feedback_id}")
 async def delete_feedback(
     feedback_id: int,
-    current_user: User = Depends(require_roles(UserRole.tutor, UserRole.mentor, UserRole.admin, UserRole.super_admin)),
+    current_user: User = Depends(require_role(UserRole.tutor, UserRole.mentor, UserRole.admin, UserRole.super_admin)),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(FeedbackEntry).where(FeedbackEntry.id == feedback_id))
@@ -990,7 +814,7 @@ async def delete_feedback(
 @router.post("/tutor-ratings")
 async def upsert_tutor_rating(
     payload: TutorRatingPayload,
-    current_user: User = Depends(require_roles(UserRole.tutor, UserRole.mentor, UserRole.admin, UserRole.super_admin)),
+    current_user: User = Depends(require_role(UserRole.tutor, UserRole.mentor, UserRole.admin, UserRole.super_admin)),
     db: AsyncSession = Depends(get_db),
 ):
     current_semester = await get_current_semester(db)
@@ -1037,7 +861,7 @@ async def tutor_ratings(
 @router.post("/penalties")
 async def create_penalty(
     payload: PenaltyCreatePayload,
-    current_user: User = Depends(require_roles(UserRole.tutor, UserRole.mentor, UserRole.admin, UserRole.super_admin)),
+    current_user: User = Depends(require_role(UserRole.tutor, UserRole.mentor, UserRole.admin, UserRole.super_admin)),
     db: AsyncSession = Depends(get_db),
 ):
     semester, academic_year = await _resolve_scope(db, payload.semester_id)
@@ -1070,7 +894,7 @@ async def list_penalties(
 @router.post("/penalties/recovery")
 async def create_recovery_task(
     payload: RecoveryTaskPayload,
-    current_user: User = Depends(require_roles(UserRole.tutor, UserRole.mentor, UserRole.admin, UserRole.super_admin)),
+    current_user: User = Depends(require_role(UserRole.tutor, UserRole.mentor, UserRole.admin, UserRole.super_admin)),
     db: AsyncSession = Depends(get_db),
 ):
     semester, academic_year = await _resolve_scope(db, payload.semester_id)
@@ -1112,7 +936,7 @@ async def complete_recovery_task(
 async def verify_recovery_task(
     task_id: int,
     points_recovered: float = Body(..., ge=0),
-    current_user: User = Depends(require_roles(UserRole.admin, UserRole.super_admin)),
+    current_user: User = Depends(require_role(UserRole.admin, UserRole.super_admin)),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(RecoveryTask).where(RecoveryTask.id == task_id))
@@ -1133,7 +957,7 @@ async def verify_recovery_task(
 async def create_employment(
     payload: EmploymentPayload,
     document: UploadFile | None = File(None),
-    current_user: User = Depends(require_roles(UserRole.student, UserRole.admin, UserRole.super_admin)),
+    current_user: User = Depends(require_role(UserRole.student, UserRole.admin, UserRole.super_admin)),
     db: AsyncSession = Depends(get_db),
 ):
     student = await _student_profile_or_404(db, current_user.id if current_user.role == UserRole.student else payload.student_id)
@@ -1171,7 +995,7 @@ async def my_employment(
 
 @router.get("/employment")
 async def list_employment(
-    current_user: User = Depends(require_roles(UserRole.admin, UserRole.super_admin)),
+    current_user: User = Depends(require_role(UserRole.admin, UserRole.super_admin)),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(EmploymentRecord).order_by(EmploymentRecord.created_at.desc()))
@@ -1182,7 +1006,7 @@ async def list_employment(
 async def verify_employment(
     employment_id: int,
     bonus_points: float = Body(..., ge=0),
-    current_user: User = Depends(require_roles(UserRole.admin, UserRole.super_admin)),
+    current_user: User = Depends(require_role(UserRole.admin, UserRole.super_admin)),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(EmploymentRecord).where(EmploymentRecord.id == employment_id))
@@ -1200,7 +1024,7 @@ async def verify_employment(
 
 @router.get("/admin/dashboard")
 async def admin_dashboard(
-    current_user: User = Depends(require_roles(UserRole.admin, UserRole.super_admin)),
+    current_user: User = Depends(require_role(UserRole.admin, UserRole.super_admin)),
     db: AsyncSession = Depends(get_db),
 ):
     total_students = (await db.execute(select(func.count()).select_from(StudentProfile))).scalar_one()
@@ -1211,7 +1035,7 @@ async def admin_dashboard(
 
 @router.get("/admin/audit-log")
 async def audit_log(
-    current_user: User = Depends(require_roles(UserRole.admin, UserRole.super_admin)),
+    current_user: User = Depends(require_role(UserRole.admin, UserRole.super_admin)),
     db: AsyncSession = Depends(get_db),
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
@@ -1225,7 +1049,7 @@ async def audit_log(
 @router.post("/admin/users")
 async def admin_create_user(
     payload: UserCreatePayload,
-    current_user: User = Depends(require_roles(UserRole.admin, UserRole.super_admin)),
+    current_user: User = Depends(require_role(UserRole.admin, UserRole.super_admin)),
     db: AsyncSession = Depends(get_db),
 ):
     from app.services.auth_service import AuthService
@@ -1251,7 +1075,7 @@ async def admin_create_user(
 @router.put("/admin/users/{user_id}/toggle")
 async def admin_toggle_user(
     user_id: int,
-    current_user: User = Depends(require_roles(UserRole.admin, UserRole.super_admin)),
+    current_user: User = Depends(require_role(UserRole.admin, UserRole.super_admin)),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(User).where(User.id == user_id))
@@ -1266,7 +1090,7 @@ async def admin_toggle_user(
 
 @router.get("/admin/reports/grant")
 async def grant_report(
-    current_user: User = Depends(require_roles(UserRole.admin, UserRole.super_admin)),
+    current_user: User = Depends(require_role(UserRole.admin, UserRole.super_admin)),
     db: AsyncSession = Depends(get_db),
 ):
     academic_year = await get_current_academic_year(db)
@@ -1278,7 +1102,7 @@ async def grant_report(
 
 @router.post("/admin/recalculate-all")
 async def recalculate_all(
-    current_user: User = Depends(require_roles(UserRole.admin, UserRole.super_admin)),
+    current_user: User = Depends(require_role(UserRole.admin, UserRole.super_admin)),
     db: AsyncSession = Depends(get_db),
 ):
     semester = await get_current_semester(db)
@@ -1295,7 +1119,7 @@ async def recalculate_all(
 @router.post("/admin/notifications/send")
 async def send_notification(
     payload: NotificationPayload,
-    current_user: User = Depends(require_roles(UserRole.admin, UserRole.super_admin)),
+    current_user: User = Depends(require_role(UserRole.admin, UserRole.super_admin)),
     db: AsyncSession = Depends(get_db),
 ):
     notification = await create_notification(db, user_id=payload.user_id, title=payload.title, message=payload.message, notification_type=payload.type)
@@ -1304,7 +1128,7 @@ async def send_notification(
 
 @router.get("/users")
 async def list_users(
-    current_user: User = Depends(require_roles(UserRole.admin, UserRole.super_admin)),
+    current_user: User = Depends(require_role(UserRole.admin, UserRole.super_admin)),
     db: AsyncSession = Depends(get_db),
     role: UserRole | None = None,
     search: str | None = None,
@@ -1359,7 +1183,7 @@ async def update_user(
 @router.delete("/users/{user_id}")
 async def delete_user(
     user_id: int,
-    current_user: User = Depends(require_roles(UserRole.admin, UserRole.super_admin)),
+    current_user: User = Depends(require_role(UserRole.admin, UserRole.super_admin)),
     db: AsyncSession = Depends(get_db),
 ):
     user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
@@ -1382,7 +1206,7 @@ async def list_groups(
 @router.post("/groups")
 async def create_group(
     payload: GroupPayload,
-    current_user: User = Depends(require_roles(UserRole.admin, UserRole.super_admin)),
+    current_user: User = Depends(require_role(UserRole.admin, UserRole.super_admin)),
     db: AsyncSession = Depends(get_db),
 ):
     group = Group(name=payload.name, course=payload.course, academic_year_id=payload.academic_year_id)
@@ -1400,7 +1224,7 @@ async def list_academic_years(current_user: User = Depends(get_current_user), db
 @router.post("/academic-years")
 async def create_academic_year(
     payload: AcademicYearPayload,
-    current_user: User = Depends(require_roles(UserRole.admin, UserRole.super_admin)),
+    current_user: User = Depends(require_role(UserRole.admin, UserRole.super_admin)),
     db: AsyncSession = Depends(get_db),
 ):
     if payload.is_current:
@@ -1415,7 +1239,7 @@ async def create_academic_year(
 async def update_academic_year(
     academic_year_id: int,
     payload: AcademicYearPayload,
-    current_user: User = Depends(require_roles(UserRole.admin, UserRole.super_admin)),
+    current_user: User = Depends(require_role(UserRole.admin, UserRole.super_admin)),
     db: AsyncSession = Depends(get_db),
 ):
     academic_year = (await db.execute(select(AcademicYear).where(AcademicYear.id == academic_year_id))).scalar_one_or_none()
@@ -1439,7 +1263,7 @@ async def list_semesters(current_user: User = Depends(get_current_user), db: Asy
 @router.post("/semesters")
 async def create_semester(
     payload: SemesterPayload,
-    current_user: User = Depends(require_roles(UserRole.admin, UserRole.super_admin)),
+    current_user: User = Depends(require_role(UserRole.admin, UserRole.super_admin)),
     db: AsyncSession = Depends(get_db),
 ):
     if payload.is_current:
@@ -1459,7 +1283,7 @@ async def create_semester(
 @router.post("/courses")
 async def create_course(
     payload: CoursePayload,
-    current_user: User = Depends(require_roles(UserRole.admin, UserRole.super_admin, UserRole.tutor, UserRole.mentor)),
+    current_user: User = Depends(require_role(UserRole.admin, UserRole.super_admin, UserRole.tutor, UserRole.mentor)),
     db: AsyncSession = Depends(get_db),
 ):
     course = Course(name=payload.name, code=payload.code, mentor_id=payload.mentor_id, year=payload.year, semester=payload.semester, max_hours=payload.max_hours)
@@ -1476,7 +1300,7 @@ async def list_courses(current_user: User = Depends(get_current_user), db: Async
 
 @router.get("/parent/children")
 async def parent_children(
-    current_user: User = Depends(require_roles(UserRole.parent)),
+    current_user: User = Depends(require_role(UserRole.parent)),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(ParentProfile).where(ParentProfile.user_id == current_user.id))
@@ -1511,7 +1335,7 @@ async def parent_children(
 @router.get("/parent/children/{student_id}/ranks")
 async def parent_child_ranks(
     student_id: int,
-    current_user: User = Depends(require_roles(UserRole.parent)),
+    current_user: User = Depends(require_role(UserRole.parent)),
     db: AsyncSession = Depends(get_db),
     academic_year_id: int | None = None,
 ):

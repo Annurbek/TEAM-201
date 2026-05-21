@@ -5,7 +5,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.exceptions import http_exception_handler, request_validation_exception_handler
-from app.core.middleware.rbac import RBACMiddleware
+from app.core.middleware.rbac import AuthMiddleware
 from app.core.config import settings
 from app.db.database import init_db
 from app.routers import router as api_router
@@ -27,8 +27,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Add RBAC middleware
-app.add_middleware(RBACMiddleware)
+# Add authentication middleware (token validation + user loading only)
+app.add_middleware(AuthMiddleware)
 
 
 @app.exception_handler(HTTPException)

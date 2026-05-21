@@ -25,7 +25,10 @@ class Settings(BaseSettings):
     def database_url(self) -> str:
         if self.DATABASE_URL_OVERRIDE:
             return self.DATABASE_URL_OVERRIDE
-        return "sqlite+aiosqlite:///./data/edumetrik.db"
+        return (
+            f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASSWORD}"
+            f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+        )
 
 
 settings = Settings()

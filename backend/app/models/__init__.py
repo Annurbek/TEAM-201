@@ -1,4 +1,5 @@
 from app.models.enums import UserRole, WorkType, PenaltyStatus, ReviewStatus, AuditAction
+from app.models.permissions import Permission, ROLE_PERMISSIONS, get_role_permissions
 from app.models.users import User
 from app.models.student import StudentProfile
 from app.models.parent import ParentProfile
@@ -36,6 +37,9 @@ from app.models.base import Base
 __all__ = [
     "User",
     "UserRole",
+    "Permission",
+    "ROLE_PERMISSIONS",
+    "get_role_permissions",
     "WorkType",
     "PenaltyStatus",
     "ReviewStatus",
