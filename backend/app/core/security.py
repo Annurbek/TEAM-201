@@ -64,8 +64,11 @@ def verify_password(password: str, password_hash: str) -> bool:
     if algorithm != "pbkdf2_sha256":
         raise ValueError("Unsupported password hash algorithm")
 
-    salt = _decode_base64url(salt_b64)
-    expected_key = _decode_base64url(stored_key_b64)
+    try:
+        salt = bytes.fromhex(salt_b64)
+        expected_key = bytes.fromhex(stored_key_b64)
+    except ValueError as exc:
+        raise ValueError("Invalid password hash payload") from exc
 
     derived_key = hashlib.pbkdf2_hmac(
         "sha256",

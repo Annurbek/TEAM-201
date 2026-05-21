@@ -1,262 +1,209 @@
-# TEAM-201 Backend
+# Edumetric Backend
 
-Backend for the Student Ranking System. The project uses FastAPI, SQLAlchemy 2.x async ORM, PostgreSQL with `asyncpg`, Pydantic v2 settings, and Alembic migrations.
+FastAPI backend for the PDP University grant and performance monitoring system.
 
-## Current Status
+The backend runs with a self-contained SQLite database by default, exposes the API under `/api`, and implements the core workflows for authentication, student scoring, attendance, grades, achievements, feedback, tutor ratings, penalties, recovery tasks, employment verification, admin dashboards, and public leaderboard access.
 
-The base backend structure is ready for team development:
+## Stack
 
-- FastAPI application entrypoint is configured.
-- PostgreSQL connection settings are loaded from `.env`.
-- SQLAlchemy models are split by domain under `app/models`.
-- Alembic is initialized and connected to model metadata.
-- Initial database migration exists and was generated from the current models.
-- Smoke tests verify the app import, root endpoint, and model mapper registration.
-
-Not implemented yet:
-
-- API route handlers in `app/routers/*`.
-- Business logic in `app/services/*`.
-- Domain-specific request/response schemas inside `app/schemas/*`.
-- Authentication endpoints and token creation flow.
-
-## Tech Stack
-
-- Python 3.11+
+- Python 3.14+
 - FastAPI
 - SQLAlchemy 2.x async ORM
-- PostgreSQL
-- asyncpg
-- Alembic
-- Pydantic Settings
-- Pytest
+- SQLite by default via `aiosqlite`
+- JWT-style bearer tokens implemented in `app/core/security.py`
+- Pydantic and Pydantic Settings
+- Alembic is still available for manual schema migrations if needed
 
-## Project Structure
+## Project Layout
 
 ```text
 app/
-  main.py                 FastAPI app, middleware, API router registration
-  core/
-    config.py             Environment-based settings
-    security.py           JWT decode helper used by RBAC middleware
-    middleware/rbac.py    Role-based access middleware
-  db/
-    database.py           Async SQLAlchemy engine/session/get_db
-    base.py               Imports all models and exposes Base.metadata
-  models/                 SQLAlchemy models and enums
-  routers/                FastAPI routers, currently placeholders
-  schemas/                Pydantic schema package, currently placeholders
-  services/               Business logic layer, currently placeholders
-  utils/                  Shared helpers
-alembic/
-  env.py                  Alembic async migration environment
-  versions/               Migration files
+  main.py                FastAPI entrypoint
+  core/                  Config, security, RBAC, error handling
+  db/                    Async engine, Base metadata, seed module
+  models/                SQLAlchemy models and enums
+  routers/               Auth + Edumetric API routers
+  services/              Auth, audit, notification, score engine
+scripts/
+  seed_demo_data.py      CLI wrapper for the demo seed
 tests/
-  test_main.py            Smoke tests
+  test_main.py           Smoke tests
 ```
 
 ## Local Setup
 
-Create and activate a virtual environment:
-
-```powershell
+```bash
+cd backend
 python -m venv .venv
-.\.venv\Scripts\activate
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
 ```
 
-Install dependencies:
-
-```powershell
-python -m pip install -r requirements.txt
-```
-
-Create local environment file:
-
-```powershell
-Copy-Item .env.example .env
-```
-
-Edit `.env` for your local PostgreSQL credentials:
+The backend works out of the box with the SQLite default in `.env.example`:
 
 ```env
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=edumetrik
-DB_USER=postgres
-DB_PASSWORD=your-local-password
-
-SECRET_KEY=change-me
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
+DATABASE_URL_OVERRIDE=sqlite+aiosqlite:///./data/edumetrik.db
+SECRET_KEY=change-me-in-production
+UPLOAD_DIR=./uploads
 ```
 
-Do not commit `.env`.
+## Run
 
-## Database Setup
-
-Create the PostgreSQL database if it does not exist:
-
-```powershell
-psql -U postgres -c "CREATE DATABASE edumetrik;"
-```
-
-If your database name is different, update `DB_NAME` in `.env`.
-
-Apply migrations:
-
-```powershell
-alembic upgrade head
-```
-
-Seed demo data:
-
-```powershell
-python scripts/seed_demo_data.py
-```
-
-The seed script is idempotent. It removes only previous demo data with emails ending in `@demo.local` and academic year `2025-2026 Demo`, then inserts fresh demo records across all current database tables.
-
-Default demo password for all demo users:
-
-```text
-DemoPass123!
-```
-
-Useful demo users:
-
-```text
-demo.superadmin@demo.local
-demo.admin@demo.local
-demo.tutor1@demo.local
-demo.parent1@demo.local
-demo.student1@demo.local
-```
-
-Check current migration:
-
-```powershell
-alembic current
-```
-
-Expected current revision:
-
-```text
-255ae92f2343 (head)
-```
-
-Check whether models and DB schema are synchronized:
-
-```powershell
-alembic check
-```
-
-Expected result:
-
-```text
-No new upgrade operations detected.
-```
-
-## Alembic Workflow
-
-Alembic is already initialized in `alembic/`. Do not run this again:
-
-```powershell
-alembic init alembic
-```
-
-When changing SQLAlchemy models:
-
-```powershell
-alembic revision --autogenerate -m "short description"
-```
-
-Review the generated file under `alembic/versions/`. Do not commit an empty migration unless it is intentional.
-
-Apply it:
-
-```powershell
-alembic upgrade head
-```
-
-Verify:
-
-```powershell
-alembic check
-```
-
-## Run The API
-
-Start the development server:
-
-```powershell
+```bash
 uvicorn app.main:app --reload
 ```
 
 Open:
 
+- `http://127.0.0.1:8000/`
+- `http://127.0.0.1:8000/docs`
+
+## Seed Demo Data
+
+The demo seed resets the database and populates a complete showcase dataset:
+
+```bash
+python -m app.db.seed
+```
+
+Demo credentials:
+
+| Role | Email | Password |
+| --- | --- | --- |
+| Admin | `admin@pdp.uz` | `DemoPass123!` |
+| Mentor 1 | `mentor1@pdp.uz` | `DemoPass123!` |
+| Mentor 2 | `mentor2@pdp.uz` | `DemoPass123!` |
+| Mentor 3 | `mentor3@pdp.uz` | `DemoPass123!` |
+| Student 01-20 | `student01@pdp.uz` ... `student20@pdp.uz` | `DemoPass123!` |
+| Parent 01-20 | `parent01@pdp.uz` ... `parent20@pdp.uz` | `DemoPass123!` |
+
+## API Summary
+
+Base URL: `/api`
+
+### Auth
+
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- `PUT /api/auth/me`
+- `POST /api/auth/change-password`
+
+Login uses the stored username field as the credential identifier. Public self-registration is disabled; admins provision student accounts from `/api/admin/users`, and the backend returns the generated username and password in the response.
+
+### Students and Leaderboard
+
+- `GET /api/students`
+- `GET /api/students/leaderboard`
+- `GET /api/students/leaderboard/guest`
+- `GET /api/students/{student_id}`
+- `GET /api/students/{student_id}/score`
+- `GET /api/students/{student_id}/score/history`
+- `GET /api/students/{student_id}/feed`
+- `POST /api/students/{student_id}/recalculate`
+
+### Attendance
+
+- `POST /api/attendance`
+- `POST /api/attendance/bulk`
+- `GET /api/attendance/{student_id}`
+- `GET /api/attendance/course/{course_id}`
+- `PUT /api/attendance/{attendance_id}`
+- `GET /api/attendance/stats/{student_id}`
+
+### Grades
+
+- `POST /api/grades`
+- `GET /api/grades/{student_id}`
+- `PUT /api/grades/{grade_id}`
+- `DELETE /api/grades/{grade_id}`
+- `GET /api/grades/stats/{student_id}`
+
+### Achievements
+
+- `POST /api/achievements`
+- `GET /api/achievements`
+- `GET /api/achievements/my`
+- `GET /api/achievements/{achievement_id}`
+- `PUT /api/achievements/{achievement_id}/approve`
+- `PUT /api/achievements/{achievement_id}/reject`
+- `DELETE /api/achievements/{achievement_id}`
+
+### Feedback and Tutor Ratings
+
+- `POST /api/feedback`
+- `GET /api/feedback/student/{student_id}`
+- `GET /api/feedback/my-given`
+- `PUT /api/feedback/{feedback_id}`
+- `DELETE /api/feedback/{feedback_id}`
+- `POST /api/tutor-ratings`
+- `GET /api/tutor-ratings/{student_id}`
+
+### Penalties, Recovery, Employment
+
+- `POST /api/penalties`
+- `GET /api/penalties/{student_id}`
+- `POST /api/penalties/recovery`
+- `PUT /api/penalties/recovery/{task_id}/complete`
+- `PUT /api/penalties/recovery/{task_id}/verify`
+- `POST /api/employment`
+- `GET /api/employment/my`
+- `GET /api/employment`
+- `PUT /api/employment/{employment_id}/verify`
+
+### Admin
+
+- `GET /api/admin/dashboard`
+- `GET /api/admin/audit-log`
+- `POST /api/admin/users`
+- `PUT /api/admin/users/{user_id}/toggle`
+- `GET /api/admin/reports/grant`
+- `POST /api/admin/recalculate-all`
+- `POST /api/admin/notifications/send`
+
+### Utility Routes
+
+- `GET /api/users`
+- `GET /api/users/{user_id}`
+- `PUT /api/users/{user_id}`
+- `DELETE /api/users/{user_id}`
+- `GET /api/groups`
+- `POST /api/groups`
+- `GET /api/academic-years`
+- `POST /api/academic-years`
+- `PUT /api/academic-years/{academic_year_id}`
+- `GET /api/semesters`
+- `POST /api/semesters`
+- `GET /api/courses`
+- `POST /api/courses`
+
+## Scoring Model
+
+- Academic: 40
+- Attendance: 20
+- Practical skills: 15
+- Activity / certificates: 10
+- Tutor rating: 5
+- Discipline: 10
+- Penalty: down to -20
+- Recovery: up to +10
+- Employment bonus: up to +10
+
+Grant eligibility:
+
 ```text
-http://127.0.0.1:8000
-http://127.0.0.1:8000/docs
+final_score >= 80 AND academic_percentage >= 80
 ```
 
-The root endpoint should return:
+## Testing
 
-```json
-{"message": "API is running"}
-```
-
-## Tests
-
-Run tests:
-
-```powershell
+```bash
 pytest -q
 ```
 
-If Windows blocks `.pytest_cache`, use:
+## Notes
 
-```powershell
-pytest -q -p no:cacheprovider
-```
-
-Current expected result:
-
-```text
-2 passed
-```
-
-## Development Rules
-
-Use `app/models` as the single source of truth for SQLAlchemy models. The root `models.py` only re-exports `app.models` for compatibility.
-
-Add API endpoints in `app/routers/<domain>.py`, then register them in `app/routers/__init__.py`.
-
-Keep business logic in `app/services/*`; routers should stay thin.
-
-Keep DB access through `app/db/database.py` using `get_db` or `AsyncSessionLocal`.
-
-Use schemas for request and response validation. The current `app/schemas/*` files are placeholders; fill them per domain as endpoints are implemented.
-
-Before pushing backend changes, run:
-
-```powershell
-pytest -q -p no:cacheprovider
-alembic check
-```
-
-## Suggested Task Split
-
-- Auth developer: implement login/register/token creation in `app/routers/auth.py`, `app/core/security.py`, and user schemas.
-- Users/students developer: implement CRUD endpoints for users, students, parents, tutors, groups, academic years, and semesters.
-- Scores/ranking developer: implement score update services, penalty services, ranking calculation, and related endpoints.
-- Migration owner: review every generated Alembic revision before merge.
-
-## Publish Checklist
-
-Before pushing to GitHub:
-
-- Keep `.env` uncommitted.
-- Commit `.env.example`.
-- Do not commit `.venv`, `.idea`, `.pytest_cache`, or `__pycache__`.
-- Avoid committing unrelated large files unless they are required project assets.
-- Run tests and Alembic check.
+- The backend creates SQLite tables on startup.
+- Uploads are stored in `./uploads`.
+- `app/models` is the single source of truth for ORM metadata.
+- `python -m app.db.seed` is the canonical demo seed command.

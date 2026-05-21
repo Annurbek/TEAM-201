@@ -5,7 +5,7 @@ from typing import Any
 from fastapi import HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from starlette.status import HTTP_401_UNAUTHORIZED, HTTP_403_FORBIDDEN, HTTP_422_UNPROCESSABLE_ENTITY
+from starlette.status import HTTP_401_UNAUTHORIZED, HTTP_403_FORBIDDEN, HTTP_422_UNPROCESSABLE_CONTENT
 
 
 def _serialize_detail(detail: Any) -> str:
@@ -45,6 +45,6 @@ async def request_validation_exception_handler(request: Request, exc: RequestVal
         for error in exc.errors()
     )
     return JSONResponse(
-        status_code=HTTP_422_UNPROCESSABLE_ENTITY,
+        status_code=HTTP_422_UNPROCESSABLE_CONTENT,
         content=_error_payload("Validation error", detail),
     )

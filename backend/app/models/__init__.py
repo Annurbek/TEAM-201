@@ -14,6 +14,23 @@ from app.models.penalties import Penalty, PenaltyCoverage
 from app.models.audit_log import AuditLog
 from app.models.score_history import ScoreHistoryLog
 from app.models.ranking import RankingSnapshot
+from app.models.edumetric import (
+    AttendanceStatus,
+    AchievementType,
+    AchievementStatus,
+    FeedbackType,
+    SentimentType,
+    NotificationType,
+    Course,
+    AttendanceRecord,
+    GradeRecord,
+    AchievementApplication,
+    FeedbackEntry,
+    TutorRating,
+    RecoveryTask,
+    EmploymentRecord,
+    Notification,
+)
 from app.models.base import Base
 
 __all__ = [
@@ -44,5 +61,20 @@ __all__ = [
     "AuditLog",
     "ScoreHistoryLog",
     "RankingSnapshot",
+    "AttendanceStatus",
+    "AchievementType",
+    "AchievementStatus",
+    "FeedbackType",
+    "SentimentType",
+    "NotificationType",
+    "Course",
+    "AttendanceRecord",
+    "GradeRecord",
+    "AchievementApplication",
+    "FeedbackEntry",
+    "TutorRating",
+    "RecoveryTask",
+    "EmploymentRecord",
+    "Notification",
     "Base"
 ]

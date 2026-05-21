@@ -3,24 +3,37 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class LoginRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    username: str = Field(..., min_length=3, max_length=255)
+    email: str = Field(..., min_length=5, max_length=255)
     password: str = Field(..., min_length=8)
 
-    @field_validator("username")
+    @field_validator("email")
     @classmethod
-    def normalize_username(cls, value: str) -> str:
+    def normalize_email(cls, value: str) -> str:
         normalized = value.strip().lower()
         if not normalized:
-            raise ValueError("Username is required")
-        if " " in normalized:
-            raise ValueError("Username must not contain spaces")
+            raise ValueError("Login identifier is required")
         return normalized
+
+
+class ChangePasswordRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    current_password: str = Field(..., min_length=8)
+    new_password: str = Field(..., min_length=8)
+
+
+class UpdateMeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    full_name: Optional[str] = Field(default=None, max_length=255)
+    phone: Optional[str] = Field(default=None, max_length=50)
+    avatar_url: Optional[str] = Field(default=None, max_length=500)
 
 
 class TokenResponse(BaseModel):

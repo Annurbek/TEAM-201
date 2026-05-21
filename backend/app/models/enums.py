@@ -11,6 +11,7 @@ class UserRole(str, Enum):
     student = "student"
     parent = "parent"
     tutor = "tutor"
+    mentor = "tutor"
 
 
 class WorkType(str, Enum):

@@ -1,6 +1,7 @@
 from typing import Callable, List, Optional, Tuple
 
-from fastapi import Request, Response, HTTPException
+from fastapi import Request, Response
+from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.status import HTTP_401_UNAUTHORIZED, HTTP_403_FORBIDDEN
 from sqlalchemy import select
@@ -12,13 +13,15 @@ from app.models.users import User
 from app.db.database import async_session_maker
 
 
-API_PREFIX = "/api/v1"
+API_PREFIX = "/api"
 PUBLIC_PATHS: List[str] = [
     "/",
     "/docs",
     "/redoc",
     "/openapi.json",
     f"{API_PREFIX}/auth/login",
+    f"{API_PREFIX}/students/leaderboard",
+    f"{API_PREFIX}/students/leaderboard/guest",
 ]
 PUBLIC_PATH_PREFIXES: List[str] = ["/docs", "/redoc", "/openapi.json"]
 ALL_ROLES: List[UserRole] = [
@@ -48,21 +51,26 @@ class RBACMiddleware(BaseHTTPMiddleware):
         if path in PUBLIC_PATHS or any(path.startswith(prefix) for prefix in PUBLIC_PATH_PREFIXES):
             return await call_next(request)
 
-        authorization: Optional[str] = request.headers.get("Authorization")
-        if not authorization:
-            raise HTTPException(
+        def unauthorized(detail: str) -> JSONResponse:
+            return JSONResponse(
                 status_code=HTTP_401_UNAUTHORIZED,
-                detail="Unauthorized",
+                content={"success": False, "message": "Unauthorized", "detail": detail},
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
+        def forbidden(detail: str) -> JSONResponse:
+            return JSONResponse(
+                status_code=HTTP_403_FORBIDDEN,
+                content={"success": False, "message": "Permission denied", "detail": detail},
+            )
+
+        authorization: Optional[str] = request.headers.get("Authorization")
+        if not authorization:
+            return unauthorized("Unauthorized")
+
         scheme, _, token = authorization.partition(" ")
         if scheme.lower() != "bearer" or not token:
-            raise HTTPException(
-                status_code=HTTP_401_UNAUTHORIZED,
-                detail="Invalid authentication scheme",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+            return unauthorized("Invalid authentication scheme")
 
         try:
             payload = decode_access_token(token, settings.SECRET_KEY, settings.ALGORITHM)
@@ -70,21 +78,13 @@ class RBACMiddleware(BaseHTTPMiddleware):
             if user_id is None:
                 raise ValueError("Token payload missing subject")
         except Exception as exc:
-            raise HTTPException(
-                status_code=HTTP_401_UNAUTHORIZED,
-                detail="Invalid or expired token",
-                headers={"WWW-Authenticate": "Bearer"},
-            ) from exc
+            return unauthorized("Invalid or expired token")
 
         async with async_session_maker() as db:
             result = await db.execute(select(User).where(User.id == int(user_id)))
             user = result.scalar_one_or_none()
             if not user:
-                raise HTTPException(
-                    status_code=HTTP_401_UNAUTHORIZED,
-                    detail="User not found",
-                    headers={"WWW-Authenticate": "Bearer"},
-                )
+                return unauthorized("User not found")
 
             request.state.user = user
             if user.role == UserRole.super_admin:
@@ -97,10 +97,7 @@ class RBACMiddleware(BaseHTTPMiddleware):
                     break
 
             if user.role not in required_roles:
-                raise HTTPException(
-                    status_code=HTTP_403_FORBIDDEN,
-                    detail=f"Insufficient permissions. Required one of: {[r.value for r in required_roles]}",
-                )
+                return forbidden(f"Insufficient permissions. Required one of: {[r.value for r in required_roles]}")
 
         response: Response = await call_next(request)
         return response

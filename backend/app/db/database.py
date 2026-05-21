@@ -1,7 +1,10 @@
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from app.core.config import settings
+from pathlib import Path
 
-engine = create_async_engine(settings.DATABASE_URL, echo=settings.SQL_ECHO)
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from app.core.config import settings
+from app.db.base import Base
+
+engine = create_async_engine(settings.database_url, echo=settings.SQL_ECHO)
 AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 async_session_maker = AsyncSessionLocal
 
@@ -9,3 +12,10 @@ async_session_maker = AsyncSessionLocal
 async def get_db():
     async with AsyncSessionLocal() as session:
         yield session
+
+
+async def init_db() -> None:
+    Path("./data").mkdir(parents=True, exist_ok=True)
+    Path(settings.UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
