@@ -98,7 +98,7 @@ class AuthService:
     async def register_user(
         db: AsyncSession,
         full_name: str,
-        email: str,
+        username: str,
         password: str,
         role: UserRole,
         phone: Optional[str] = None,
@@ -106,14 +106,14 @@ class AuthService:
         group_id: Optional[int] = None,
         academic_year_id: Optional[int] = None,
     ) -> User:
-        existing = await AuthService.get_user_by_username(db, email)
+        existing = await AuthService.get_user_by_username(db, username)
         if existing:
-            raise ValueError("User with this email already exists")
+            raise ValueError("User with this username already exists")
 
         user = await AuthService.create_user(
             db=db,
             full_name=full_name,
-            username=email,
+            username=username,
             password=password,
             phone=phone,
             role=role,

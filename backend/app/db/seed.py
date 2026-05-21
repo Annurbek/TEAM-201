@@ -142,14 +142,14 @@ async def reset_database() -> None:
 
 async def create_users(session) -> tuple[User, list[User], list[User], list[User]]:
     admin = await AuthService.register_user(
-        session, full_name="PDP Admin", email=ADMIN_EMAIL,
+        session, full_name="PDP Admin", username=ADMIN_EMAIL,
         password=DEMO_PASSWORD, role=UserRole.admin, phone="+998901111111",
     )
 
     mentors = []
-    for full_name, email in [("Mentor One", "mentor1@pdp.uz"), ("Mentor Two", "mentor2@pdp.uz"), ("Mentor Three", "mentor3@pdp.uz")]:
+    for full_name, username in [("Mentor One", "mentor1@pdp.uz"), ("Mentor Two", "mentor2@pdp.uz"), ("Mentor Three", "mentor3@pdp.uz")]:
         mentors.append(await AuthService.register_user(
-            session, full_name=full_name, email=email,
+            session, full_name=full_name, username=username,
             password=DEMO_PASSWORD, role=UserRole.tutor,
             phone=f"+99890{random.randint(1000000, 9999999)}",
         ))
@@ -157,7 +157,7 @@ async def create_users(session) -> tuple[User, list[User], list[User], list[User
     students = []
     for i in range(1, STUDENT_COUNT + 1):
         students.append(await AuthService.register_user(
-            session, full_name=f"Student {i:02d}", email=f"student{i:02d}@pdp.uz",
+            session, full_name=f"Student {i:02d}", username=f"student{i:02d}@pdp.uz",
             password=DEMO_PASSWORD, role=UserRole.student,
             phone=f"+99891{i:07d}", student_code=f"PDP-2025-{i:03d}",
         ))
@@ -165,7 +165,7 @@ async def create_users(session) -> tuple[User, list[User], list[User], list[User
     parents = []
     for i in range(1, PARENT_COUNT + 1):
         parents.append(await AuthService.register_user(
-            session, full_name=f"Parent {i:02d}", email=f"parent{i:02d}@pdp.uz",
+            session, full_name=f"Parent {i:02d}", username=f"parent{i:02d}@pdp.uz",
             password=DEMO_PASSWORD, role=UserRole.parent,
             phone=f"+99893{i:07d}",
         ))

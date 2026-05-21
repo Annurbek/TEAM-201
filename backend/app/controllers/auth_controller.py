@@ -15,11 +15,11 @@ from app.services.auth_service import AuthService
 
 
 async def login_user(payload: LoginRequest, db: AsyncSession) -> TokenResponse:
-    user = await AuthService.authenticate_user(db, payload.email, payload.password)
+    user = await AuthService.authenticate_user(db, payload.username, payload.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password",
+            detail="Invalid username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
 

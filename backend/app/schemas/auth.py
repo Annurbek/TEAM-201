@@ -9,15 +9,15 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 class LoginRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    email: str = Field(..., min_length=5, max_length=255)
+    username: str = Field(..., min_length=5, max_length=255)
     password: str = Field(..., min_length=8)
 
-    @field_validator("email")
+    @field_validator("username")
     @classmethod
-    def normalize_email(cls, value: str) -> str:
+    def normalize_username(cls, value: str) -> str:
         normalized = value.strip().lower()
         if not normalized:
-            raise ValueError("Login identifier is required")
+            raise ValueError("Username is required")
         return normalized
 
 

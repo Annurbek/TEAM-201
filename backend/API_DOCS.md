@@ -13,7 +13,7 @@ Login and receive access token.
 **Request Body:**
 ```json
 {
-  "email": "admin@pdp.uz",
+  "username": "admin@pdp.uz",
   "password": "DemoPass123!"
 }
 ```
